@@ -1,113 +1,253 @@
-import Image from 'next/image'
+"use client";
+import { ChangeEvent, useState } from "react";
+import { useQuery, gql, useLazyQuery, useMutation } from "@apollo/client";
 
 export default function Home() {
+  const [name, setName] = useState<string>("");
+  const [values, setValues] = useState<{
+    name: string;
+    age: number | string;
+    country: string;
+  }>({
+    name: "",
+    age: "",
+    country: "",
+  });
+  const [editUser, setEditUser] = useState(false);
+  const [userId, setUserId] = useState<number>(0);
+
+  type User = {
+    id: number;
+    name: string;
+    age: number;
+    country: string;
+  };
+
+  const GET_ALL_USERS = gql`
+    query getAllUser {
+      users {
+        id
+        name
+        age
+        country
+      }
+    }
+  `;
+
+  const GET_USER_INFO = gql`
+    query getSingleUser($name: String!) {
+      user(name: $name) {
+        id
+        name
+        age
+        country
+      }
+    }
+  `;
+
+  const CREATE_USER = gql`
+    mutation createNewUser($inputs: UserInputs!) {
+      createUser(inputs: $inputs) {
+        id
+        name
+      }
+    }
+  `;
+
+  const EDIT_USER = gql`
+    mutation EditUser($updateInputs: UpdateUserInputs!) {
+      updateUser(inputs: $updateInputs) {
+        id
+        name
+      }
+    }
+  `;
+
+  const DELETE_USER = gql`
+    mutation UserDelete($deleteUserId: ID!) {
+      deleteUser(id: $deleteUserId) {
+        id
+      }
+    }
+  `;
+
+  const { data, loading: usersLoading, refetch } = useQuery(GET_ALL_USERS);
+  const [getUserInfo, { data: userInfo, loading }] =
+    useLazyQuery(GET_USER_INFO);
+  const user = userInfo?.user;
+
+  const [createUser] = useMutation(CREATE_USER);
+  const [updateUser] = useMutation(EDIT_USER);
+  const [deleteUser] = useMutation(DELETE_USER);
+
+  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+
+    setValues({
+      ...values,
+      [name]: value,
+    });
+  };
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">app/page.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:h-auto lg:w-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{' '}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
+    <main>
+      <h1 className="text-6xl">Users</h1>
+      {usersLoading ? (
+        <div className="mt-8 ms-4 text-3xl">Loading...</div>
+      ) : (
+        <div className="flex items-center">
+          {data &&
+            data.users?.map((user: User) => {
+              return (
+                <div
+                  className="p-7 ms-3 mt-3 border-2 relative border-blue-300"
+                  key={user.id}
+                >
+                  <div
+                    className="text-green-500 cursor-pointer absolute top-1 left-2"
+                    onClick={() => {
+                      setEditUser(true);
+                      setValues({
+                        name: user.name,
+                        age: user.age,
+                        country: user.country,
+                      });
+                      setUserId(user.id);
+                    }}
+                  >
+                    edit
+                  </div>
+                  <div
+                    className="text-red-500 cursor-pointer font-bold absolute top-1 right-2"
+                    onClick={() => {
+                      deleteUser({ variables: { deleteUserId: user.id } });
+                      refetch();
+                    }}
+                  >
+                    X
+                  </div>
+                  <h2>Name: {user.name}</h2>
+                  <h3>Age: {user.age}</h3>
+                  <h4>Country: {user.country}</h4>
+                </div>
+              );
+            })}
+        </div>
+      )}
+      <div className="mt-10 flex flex-col items-center">
+        <input
+          className="w-[20%] mb-3 border-[1px] p-3"
+          type="text"
+          placeholder="get single user info..."
+          onChange={(e) => setName(e.target.value)}
+        />
+        <button
+          className="bg-blue-400 p-3 text-white"
+          onClick={() => getUserInfo({ variables: { name: name } })}
+        >
+          Get User Info
+        </button>
+        {loading && <div className="mt-8 text-3xl">Loading...</div>}
+        {user && (
+          <div className="p-5 ms-3 mt-8 border-2 border-orange-300">
+            <h2>Name: {user.name}</h2>
+            <h3>Age: {user.age}</h3>
+            <h4>Country: {user.country}</h4>
+          </div>
+        )}
+      </div>
+      <div className="mt-10 border-t-2 border-blue-500 flex flex-col items-center">
+        <h1 className="text-3xl mt-3">Create New User</h1>
+        <div className="mt-6 flex flex-col">
+          <input
+            className="mb-3 border-[1px] p-3"
+            type="text"
+            name="name"
+            value={values.name}
+            placeholder="Name..."
+            onChange={handleChange}
+          />
+          <input
+            className="mb-3 border-[1px] p-3"
+            type="number"
+            name="age"
+            value={values.age}
+            placeholder="Age..."
+            onChange={handleChange}
+          />
+          <input
+            className="mb-3 border-[1px] p-3"
+            type="text"
+            name="country"
+            value={values.country}
+            placeholder="Country..."
+            onChange={handleChange}
+          />
+          {!editUser ? (
+            <button
+              className="bg-blue-400 p-3 text-white"
+              onClick={() => {
+                createUser({
+                  variables: {
+                    inputs: {
+                      name: values.name,
+                      age: Number(values.age),
+                      country: values.country,
+                    },
+                  },
+                });
+
+                setValues({
+                  name: "",
+                  age: "",
+                  country: "",
+                });
+                refetch();
+              }}
+            >
+              Create User
+            </button>
+          ) : (
+            <button
+              className="bg-green-400 p-3 text-white"
+              onClick={() => {
+                updateUser({
+                  variables: {
+                    updateInputs: {
+                      id: userId,
+                      name: values.name,
+                      age: Number(values.age),
+                      country: values.country,
+                    },
+                  },
+                });
+
+                setValues({
+                  name: "",
+                  age: "",
+                  country: "",
+                });
+                refetch();
+              }}
+            >
+              Edit User
+            </button>
+          )}
+          {editUser && (
+            <button
+              className="bg-red-400 p-3 mt-2 text-white"
+              onClick={() => {
+                setEditUser(false);
+                setValues({
+                  name: "",
+                  age: "",
+                  country: "",
+                });
+              }}
+            >{`Don't Edit`}</button>
+          )}
         </div>
       </div>
-
-      <div className="relative flex place-items-center before:absolute before:h-[300px] before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 before:lg:h-[360px] z-[-1]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className="mb-32 grid text-center lg:mb-0 lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Docs{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Learn{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Templates{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Explore the Next.js 13 playground.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Deploy{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
     </main>
-  )
+  );
 }
